@@ -151,8 +151,7 @@ class ComputeLoss:
             b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
             tobj = torch.zeros_like(pi[..., 0], device=device)  # target obj
 
-            n = b.shape[0]  # number of targets
-            if n:
+            if n := b.shape[0]:
                 ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
 
                 # Regression
@@ -171,7 +170,7 @@ class ComputeLoss:
                     lkptv += self.BCEcls(pkpt_score, kpt_mask.float()) 
                     #l2 distance based loss
                     lkpt += (self.kptloss(tkpt[i][:,0::2], pkpt_x, kpt_mask) + self.kptloss(tkpt[i][:,1::2], pkpt_y, kpt_mask)) / 2
-                        
+
                 # Objectness
                 tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
 
@@ -180,10 +179,6 @@ class ComputeLoss:
                     t = torch.full_like(ps[:, 5:], self.cn, device=device)  # targets
                     t[range(n), tcls[i]] = self.cp
                     lcls += self.BCEcls(ps[:, 5:], t)  # BCE
-
-                # Append targets to text file
-                # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss

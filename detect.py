@@ -110,7 +110,7 @@ def detect(opt):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
+                        with open(f'{txt_path}.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     if save_img or opt.save_crop or view_img:  # Add bbox to image
@@ -118,15 +118,15 @@ def detect(opt):
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
                         kpts = det[det_index, 6:]
                         plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
-                        if opt.save_crop:
-                            save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+                    if opt.save_crop:
+                        save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
 
                 if save_txt_tidl:  # Write to file in tidl dump format
                     for *xyxy, conf, cls in det_tidl:
                         xyxy = torch.tensor(xyxy).view(-1).tolist()
                         line = (conf, cls,  *xyxy) if opt.save_conf else (cls, *xyxy)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
+                        with open(f'{txt_path}.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
             # Print time (inference + NMS)
@@ -137,11 +137,10 @@ def detect(opt):
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
 
-            # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
                     cv2.imwrite(save_path, im0)
-                else:  # 'video' or 'stream'
+                else:
                     if vid_path != save_path:  # new video
                         vid_path = save_path
                         if isinstance(vid_writer, cv2.VideoWriter):

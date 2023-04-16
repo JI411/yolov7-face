@@ -38,18 +38,16 @@ def get_gt_boxes_from_txt(gt_path, cache_dir):
 
     cache_file = os.path.join(cache_dir, 'gt_cache.pkl')
     if os.path.exists(cache_file):
-        f = open(cache_file, 'rb')
-        boxes = pickle.load(f)
-        f.close()
+        with open(cache_file, 'rb') as f:
+            boxes = pickle.load(f)
         return boxes
 
-    f = open(gt_path, 'r')
-    state = 0
-    lines = f.readlines()
-    lines = list(map(lambda x: x.rstrip('\r\n'), lines))
-    boxes = {}
-    print(len(lines))
-    f.close()
+    with open(gt_path, 'r') as f:
+        state = 0
+        lines = f.readlines()
+        lines = list(map(lambda x: x.rstrip('\r\n'), lines))
+        boxes = {}
+        print(len(lines))
     current_boxes = []
     current_name = None
     for line in lines:
@@ -73,9 +71,8 @@ def get_gt_boxes_from_txt(gt_path, cache_dir):
             current_boxes.append(box)
             continue
 
-    f = open(cache_file, 'wb')
-    pickle.dump(boxes, f)
-    f.close()
+    with open(cache_file, 'wb') as f:
+        pickle.dump(boxes, f)
     return boxes
 
 
@@ -103,14 +100,14 @@ def read_pred_file(filepath):
 
 def get_preds(pred_dir):
     events = os.listdir(pred_dir)
-    boxes = dict()
+    boxes = {}
     pbar = tqdm.tqdm(events)
 
     for event in pbar:
         pbar.set_description('Reading Predictions ')
         event_dir = os.path.join(pred_dir, event)
         event_images = os.listdir(event_dir)
-        current_event = dict()
+        current_event = {}
         for imgtxt in event_images:
             imgname, _boxes = read_pred_file(os.path.join(event_dir, imgtxt))
             current_event[imgname.rstrip('.jpg')] = _boxes
@@ -219,9 +216,7 @@ def voc_ap(rec, prec):
     # where X axis (recall) changes value
     i = np.where(mrec[1:] != mrec[:-1])[0]
 
-    # and sum (\Delta recall) * prec
-    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
-    return ap
+    return np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
 
 
 def evaluation(pred, gt_path, iou_thresh=0.5):
@@ -241,7 +236,7 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
         # [hard, medium, easy]
         pbar = tqdm.tqdm(range(event_num))
         for i in pbar:
-            pbar.set_description('Processing {}'.format(settings[setting_id]))
+            pbar.set_description(f'Processing {settings[setting_id]}')
             event_name = str(event_list[i][0][0])
             img_list = file_list[i][0]
             pred_list = pred[event_name]
@@ -275,9 +270,9 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
         aps.append(ap)
 
     print("==================== Results ====================")
-    print("Easy   Val AP: {}".format(aps[0]))
-    print("Medium Val AP: {}".format(aps[1]))
-    print("Hard   Val AP: {}".format(aps[2]))
+    print(f"Easy   Val AP: {aps[0]}")
+    print(f"Medium Val AP: {aps[1]}")
+    print(f"Hard   Val AP: {aps[2]}")
     print("=================================================")
 
 

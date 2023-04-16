@@ -150,14 +150,12 @@ def check_imshow():
 
 
 def check_file(file):
-    # Search for file if not found
     if Path(file).is_file() or file == '':
         return file
-    else:
-        files = glob.glob('./**/' + file, recursive=True)  # find file
-        assert len(files), f'File Not Found: {file}'  # assert file was found
-        assert len(files) == 1, f"Multiple files match '{file}', specify exact path: {files}"  # assert unique
-        return files[0]  # return file
+    files = glob.glob('./**/' + file, recursive=True)  # find file
+    assert len(files), f'File Not Found: {file}'  # assert file was found
+    assert len(files) == 1, f"Multiple files match '{file}', specify exact path: {files}"  # assert unique
+    return files[0]  # return file
 
 
 def check_dataset(dict):
@@ -167,20 +165,19 @@ def check_dataset(dict):
         val = [Path(x).resolve() for x in (val if isinstance(val, list) else [val])]  # val path
         if not all(x.exists() for x in val):
             print('\nWARNING: Dataset not found, nonexistent paths: %s' % [str(x) for x in val if not x.exists()])
-            if s and len(s):  # download script
-                if s.startswith('http') and s.endswith('.zip'):  # URL
-                    f = Path(s).name  # filename
-                    print(f'Downloading {s} ...')
-                    torch.hub.download_url_to_file(s, f)
-                    r = os.system(f'unzip -q {f} -d ../ && rm {f}')  # unzip
-                elif s.startswith('bash '):  # bash script
-                    print(f'Running {s} ...')
-                    r = os.system(s)
-                else:  # python script
-                    r = exec(s)  # return None
-                print('Dataset autodownload %s\n' % ('success' if r in (0, None) else 'failure'))  # print result
-            else:
+            if not s or not len(s):
                 raise Exception('Dataset not found.')
+            if s.startswith('http') and s.endswith('.zip'):  # URL
+                f = Path(s).name  # filename
+                print(f'Downloading {s} ...')
+                torch.hub.download_url_to_file(s, f)
+                r = os.system(f'unzip -q {f} -d ../ && rm {f}')  # unzip
+            elif s.startswith('bash '):  # bash script
+                print(f'Running {s} ...')
+                r = os.system(s)
+            else:  # python script
+                r = exec(s)  # return None
+            print('Dataset autodownload %s\n' % ('success' if r in (0, None) else 'failure'))  # print result
 
 
 def download(url, dir='.', threads=1):
@@ -269,21 +266,92 @@ def labels_to_class_weights(labels, nc=80):
 def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     # Produces image weights based on class_weights and image contents
     class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
-    image_weights = (class_weights.reshape(1, nc) * class_counts).sum(1)
-    # index = random.choices(range(n), weights=image_weights, k=1)  # weight image sample
-    return image_weights
+    return (class_weights.reshape(1, nc) * class_counts).sum(1)
 
 
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
-    # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    # a = np.loadtxt('data/coco.names', dtype='str', delimiter='\n')
-    # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
-    # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
-    # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
-    x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
-         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-         64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
-    return x
+    return [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        27,
+        28,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        67,
+        70,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+    ]
 
 
 def xyxy2xywh(x):
@@ -386,8 +454,8 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None, kpt_label=False
         coords[:, [1, 3]] -= pad[1]  # y padding
         coords[:, [0, 2]] /= gain
         coords[:, [1, 3]] /= gain
-        clip_coords(coords[0:4], img0_shape)
-        #coords[:, 0:4] = coords[:, 0:4].round()
+        clip_coords(coords[:4], img0_shape)
+            #coords[:, 0:4] = coords[:, 0:4].round()
     else:
         coords[:, 0::step] -= pad[0]  # x padding
         coords[:, 1::step] -= pad[1]  # y padding
@@ -511,7 +579,11 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
     if nc is None:
-        nc = prediction.shape[2] - 5  if not kpt_label else prediction.shape[2] - 5 - kpt_label * 3 # number of classes
+        nc = (
+            prediction.shape[2] - 5 - kpt_label * 3
+            if kpt_label
+            else prediction.shape[2] - 5
+        )
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
@@ -553,16 +625,15 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         if multi_label:
             i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
-        else:  # best class only
-            if not kpt_label:
-                conf, j = x[:, 5:].max(1, keepdim=True)
-                x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
-            else:
-                kpts = x[:, 6:]
-                conf, j = x[:, 5:6].max(1, keepdim=True)
-                x = torch.cat((box, conf, j.float(), kpts), 1)[conf.view(-1) > conf_thres]
+        elif kpt_label:
+            kpts = x[:, 6:]
+            conf, j = x[:, 5:6].max(1, keepdim=True)
+            x = torch.cat((box, conf, j.float(), kpts), 1)[conf.view(-1) > conf_thres]
 
 
+        else:
+            conf, j = x[:, 5:].max(1, keepdim=True)
+            x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
         # Filter by class
         if classes is not None:
             x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
@@ -608,7 +679,11 @@ def non_max_suppression_export(prediction, conf_thres=0.25, iou_thres=0.45, clas
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
     if nc is None:
-        nc = prediction.shape[2] - 5  if not kpt_label else prediction.shape[2] - 5 - kpt_label * 3 # number of classes
+        nc = (
+            prediction.shape[2] - 5 - kpt_label * 3
+            if kpt_label
+            else prediction.shape[2] - 5
+        )
 
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
     xc = prediction[..., 4] > conf_thres  # candidates
@@ -645,7 +720,9 @@ def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_op
         p.requires_grad = False
     torch.save(x, s or f)
     mb = os.path.getsize(s or f) / 1E6  # filesize
-    print(f"Optimizer stripped from {f},{(' saved as %s,' % s) if s else ''} {mb:.1f}MB")
+    print(
+        f"Optimizer stripped from {f},{f' saved as {s},' if s else ''} {mb:.1f}MB"
+    )
 
 
 def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
@@ -656,9 +733,9 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
     print('\n%s\n%s\nEvolved fitness: %s\n' % (a, b, c))
 
     if bucket:
-        url = 'gs://%s/evolve.txt' % bucket
+        url = f'gs://{bucket}/evolve.txt'
         if gsutil_getsize(url) > (os.path.getsize('evolve.txt') if os.path.exists('evolve.txt') else 0):
-            os.system('gsutil cp %s .' % url)  # download evolve.txt if larger than local
+            os.system(f'gsutil cp {url} .')
 
     with open('evolve.txt', 'a') as f:  # append result
         f.write(c + b + '\n')
@@ -676,7 +753,7 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
         yaml.safe_dump(hyp, f, sort_keys=False)
 
     if bucket:
-        os.system('gsutil cp evolve.txt %s gs://%s' % (yaml_file, bucket))  # upload
+        os.system(f'gsutil cp evolve.txt {yaml_file} gs://{bucket}')
 
 
 def apply_classifier(x, model, img, im0):
@@ -698,7 +775,7 @@ def apply_classifier(x, model, img, im0):
             # Classes
             pred_cls1 = d[:, 5].long()
             ims = []
-            for j, a in enumerate(d):  # per item
+            for a in d:
                 cutout = im0[i][int(a[1]):int(a[3]), int(a[0]):int(a[2])]
                 im = cv2.resize(cutout, (224, 224))  # BGR
                 # cv2.imwrite('test%i.jpg' % j, cutout)
@@ -738,7 +815,7 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
         i = [int(m.groups()[0]) for m in matches if m]  # indices
         n = max(i) + 1 if i else 2  # increment number
         path = Path(f"{path}{sep}{n}{suffix}")  # update path
-    dir = path if path.suffix == '' else path.parent  # directory
+    dir = path.parent if path.suffix else path
     if not dir.exists() and mkdir:
         dir.mkdir(parents=True, exist_ok=True)  # make directory
     return path

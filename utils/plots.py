@@ -72,14 +72,13 @@ def plot_one_box(x, im, color=None, label=None, line_thickness=3, kpt_label=Fals
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(im, c1, c2, (255,0,0), thickness=tl*1//3, lineType=cv2.LINE_AA)
-    if label:
-        if len(label.split(' ')) > 1:
-            label = label.split(' ')[-1]
-            tf = max(tl - 1, 1)  # font thickness
-            t_size = cv2.getTextSize(label, 0, fontScale=tl / 6, thickness=tf)[0]
-            c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
-            cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
-            cv2.putText(im, label, (c1[0], c1[1] - 2), 0, tl / 6, [225, 255, 255], thickness=tf//2, lineType=cv2.LINE_AA)
+    if label and len(label.split(' ')) > 1:
+        label = label.split(' ')[-1]
+        tf = max(tl - 1, 1)  # font thickness
+        t_size = cv2.getTextSize(label, 0, fontScale=tl / 6, thickness=tf)[0]
+        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+        cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
+        cv2.putText(im, label, (c1[0], c1[1] - 2), 0, tl / 6, [225, 255, 255], thickness=tf//2, lineType=cv2.LINE_AA)
     if kpt_label:
         plot_skeleton_kpts(im, kpts, steps, orig_shape=orig_shape)
 
@@ -99,7 +98,7 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
     for kid in range(num_kpts):
         r, g, b = palette[kid]
         x_coord, y_coord = kpts[steps * kid], kpts[steps * kid + 1]
-        if not (x_coord % 640 == 0 or y_coord % 640 == 0):
+        if x_coord % 640 != 0 and y_coord % 640 != 0:
             if steps == 3:
                 conf = kpts[steps * kid + 2]
                 if conf < 0.5:
@@ -147,8 +146,16 @@ def output_to_target(output):
     for i, o in enumerate(output):
         kpts = o[:,6:]
         o = o[:,:6]
-        for index, (*box, conf, cls) in enumerate(o.cpu().numpy()):
-            targets.append([i, cls, *list(*xyxy2xywh(np.array(box)[None])), conf, *list(kpts.cpu().numpy()[index])])
+        targets.extend(
+            [
+                i,
+                cls,
+                *list(*xyxy2xywh(np.array(box)[None])),
+                conf,
+                *list(kpts.cpu().numpy()[index]),
+            ]
+            for index, (*box, conf, cls) in enumerate(o.cpu().numpy())
+        )
     return np.array(targets)
 
 
@@ -196,10 +203,7 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             labels = image_targets.shape[1] == kpt_label*2+6 if kpt_label else image_targets.shape[1] == 6   # labels if no conf column
             conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
             if kpt_label:
-                if conf is None:
-                    kpts = image_targets[:, 6:].T   #kpts for GT
-                else:
-                    kpts = image_targets[:, 7:].T    #kpts for prediction
+                kpts = image_targets[:, 6:].T if conf is None else image_targets[:, 7:].T
             else:
                 kpts = None
 
@@ -227,12 +231,12 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 color = colors(cls)
                 cls = names[cls] if names else cls
                 if labels or conf[j] > 0.1:  # 0.25 conf thresh
-                    label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
+                    label = f'{cls}' if labels else '%s %.1f' % (cls, conf[j])
                     if kpt_label:
                         plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl, kpt_label=kpt_label, kpts=kpts[:,j], steps=steps, orig_shape=orig_shape)
                     else:
                         plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl, kpt_label=kpt_label, orig_shape=orig_shape)
-                    #cv2.imwrite(Path(paths[i]).name.split('.')[0] + "_box_{}.".format(j) + Path(paths[i]).name.split('.')[1], mosaic[:,:,::-1]) # used for debugging the dataloader pipeline
+                                    #cv2.imwrite(Path(paths[i]).name.split('.')[0] + "_box_{}.".format(j) + Path(paths[i]).name.split('.')[1], mosaic[:,:,::-1]) # used for debugging the dataloader pipeline
 
         # Draw image filename labels
         if paths:
@@ -332,7 +336,7 @@ def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_tx
     ax2.set_xlabel('GPU Speed (ms/img)')
     ax2.set_ylabel('COCO AP val')
     ax2.legend(loc='lower right')
-    plt.savefig(str(Path(path).name) + '.png', dpi=300)
+    plt.savefig(f'{str(Path(path).name)}.png', dpi=300)
 
 
 def plot_labels(labels, names=(), save_dir=Path(''), loggers=None):
@@ -433,7 +437,7 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
                 else:
                     a.remove()
         except Exception as e:
-            print('Warning: Plotting error for %s; %s' % (f, e))
+            print(f'Warning: Plotting error for {f}; {e}')
 
     ax[1].legend()
     plt.savefig(Path(save_dir) / 'idetection_profile.png', dpi=200)
@@ -475,7 +479,9 @@ def plot_results(start=0, stop=0, bucket='', id=(), labels=(), save_dir=''):
         os.system(c)
     else:
         files = list(Path(save_dir).glob('results*.txt'))
-    assert len(files), 'No results.txt files found in %s, nothing to plot.' % os.path.abspath(save_dir)
+    assert len(
+        files
+    ), f'No results.txt files found in {os.path.abspath(save_dir)}, nothing to plot.'
     for fi, f in enumerate(files):
         try:
             results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
@@ -492,7 +498,7 @@ def plot_results(start=0, stop=0, bucket='', id=(), labels=(), save_dir=''):
                 # if i in [5, 6, 7]:  # share train and val loss y axes
                 #     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
         except Exception as e:
-            print('Warning: Plotting error for %s; %s' % (f, e))
+            print(f'Warning: Plotting error for {f}; {e}')
 
     ax[1].legend()
     fig.savefig(Path(save_dir) / 'results.png', dpi=200)
