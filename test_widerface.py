@@ -45,7 +45,7 @@ def detect(opt):
 
     # testing dataset
     testset_folder = opt.dataset_folder
-    testset_list = opt.dataset_folder[:-7] + "wider_val.txt"
+    testset_list = f"{opt.dataset_folder[:-7]}wider_val.txt"
 
     with open(testset_list, 'r') as fr:
         test_dataset = fr.read().split()
@@ -80,7 +80,7 @@ def detect(opt):
             fd.write(file_name)
             fd.write(bboxs_num)
             # Process detections
-            for i, det in enumerate(pred):  # detections per image
+            for det in pred:
                 gn = torch.tensor(img0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                 if len(det):
                     # Rescale boxes from img_size to im0 size
@@ -100,9 +100,9 @@ def detect(opt):
                         y1 = int(xyxy[1] + 0.5)
                         x2 = int(xyxy[2] + 0.5)
                         y2 = int(xyxy[3] + 0.5)
-                        fd.write('%d %d %d %d %.03f' % (x1, y1, x2-x1, y2-y1, conf if conf <= 1 else 1) + '\n')
-                        #plot_one_box(xyxy, img0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=img0.shape[:2])
-            #cv2.imwrite('result.jpg', img0)
+                        fd.write('%d %d %d %d %.03f' % (x1, y1, x2-x1, y2-y1, min(conf, 1)) + '\n')
+                                            #plot_one_box(xyxy, img0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=img0.shape[:2])
+                    #cv2.imwrite('result.jpg', img0)
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 

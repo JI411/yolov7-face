@@ -4,6 +4,7 @@ Usage:
     $ export PYTHONPATH="$PWD" && python models/export.py --weights yolov5s.pt --img 640 --batch 1
 """
 
+
 import argparse
 import sys
 import time
@@ -66,8 +67,15 @@ if __name__ == '__main__':
 
     print(f'starting export with onnx {onnx.__version__}...')
     f = opt.weights.replace('.pt', '.onnx')  # filename
-    torch.onnx.export(model, img, f, verbose=False, opset_version=11, input_names=['data'],
-	                 output_names=['stride_' + str(int(x)) for x in model.stride])
+    torch.onnx.export(
+        model,
+        img,
+        f,
+        verbose=False,
+        opset_version=11,
+        input_names=['data'],
+        output_names=[f'stride_{int(x)}' for x in model.stride],
+    )
 
 
     # Checks

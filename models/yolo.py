@@ -68,7 +68,6 @@ class Detect(nn.Module):
 
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
-            x_det = x[i][..., :6]
             x_kpt = x[i][..., 6:]
 
             if not self.training:  # inference
@@ -77,13 +76,10 @@ class Detect(nn.Module):
                 kpt_grid_x = self.grid[i][..., 0:1]
                 kpt_grid_y = self.grid[i][..., 1:2]
 
-                if self.nkpt == 0:
-                    y = x[i].sigmoid()
-                else:
-                    y = x_det.sigmoid()
-
+                x_det = x[i][..., :6]
+                y = x[i].sigmoid() if self.nkpt == 0 else x_det.sigmoid()
+                xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                 if self.inplace:
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i].view(1, self.na, 1, 1, 2) # wh
                     if self.nkpt != 0:
                         x_kpt[..., 0::3] = (x_kpt[..., ::3] * 2. - 0.5 + kpt_grid_x.repeat(1,1,1,1,self.nkpt)) * self.stride[i]  # xy
@@ -95,7 +91,6 @@ class Detect(nn.Module):
                     y = torch.cat((xy, wh, y[..., 4:], x_kpt), dim = -1)
 
                 else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                     if self.nkpt != 0:
                         y[..., 6:] = (y[..., 6:] * 2. - 0.5 + self.grid[i].repeat((1,1,1,1,self.nkpt))) * self.stride[i]  # xy
@@ -161,7 +156,6 @@ class IDetect(nn.Module):
 
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
-            x_det = x[i][..., :6]
             x_kpt = x[i][..., 6:]
 
             if not self.training:  # inference
@@ -170,13 +164,10 @@ class IDetect(nn.Module):
                 kpt_grid_x = self.grid[i][..., 0:1]
                 kpt_grid_y = self.grid[i][..., 1:2]
 
-                if self.nkpt == 0:
-                    y = x[i].sigmoid()
-                else:
-                    y = x_det.sigmoid()
-
+                x_det = x[i][..., :6]
+                y = x[i].sigmoid() if self.nkpt == 0 else x_det.sigmoid()
+                xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                 if self.inplace:
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i].view(1, self.na, 1, 1, 2) # wh
                     if self.nkpt != 0:
                         x_kpt[..., 0::3] = (x_kpt[..., ::3] * 2. - 0.5 + kpt_grid_x.repeat(1,1,1,1,self.nkpt)) * self.stride[i]  # xy
@@ -196,7 +187,6 @@ class IDetect(nn.Module):
                     y = torch.cat((xy, wh, y[..., 4:], x_kpt), dim = -1)
 
                 else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                     if self.nkpt != 0:
                         y[..., 6:] = (y[..., 6:] * 2. - 0.5 + self.grid[i].repeat((1,1,1,1,self.nkpt))) * self.stride[i]  # xy
@@ -281,13 +271,9 @@ class IKeypoint(nn.Module):
                 kpt_grid_x = self.grid[i][..., 0:1]
                 kpt_grid_y = self.grid[i][..., 1:2]
 
-                if self.nkpt == 0:
-                    y = x[i].sigmoid()
-                else:
-                    y = x_det.sigmoid()
-
+                y = x[i].sigmoid() if self.nkpt == 0 else x_det.sigmoid()
+                xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                 if self.inplace:
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i].view(1, self.na, 1, 1, 2) # wh
                     if self.nkpt != 0:
                         x_kpt[..., 0::3] = (x_kpt[..., ::3] * 2. - 0.5 + kpt_grid_x.repeat(1,1,1,1,self.nkpt)) * self.stride[i]  # xy
@@ -297,7 +283,6 @@ class IKeypoint(nn.Module):
                     y = torch.cat((xy, wh, y[..., 4:], x_kpt), dim = -1)
 
                 else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
-                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                     if self.nkpt != 0:
                         y[..., 6:] = (y[..., 6:] * 2. - 0.5 + self.grid[i].repeat((1,1,1,1,self.nkpt))) * self.stride[i]  # xy
@@ -339,7 +324,7 @@ class Model(nn.Module):
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
-        if isinstance(m, Detect) or isinstance(m, IDetect) or isinstance(m, IKeypoint):
+        if isinstance(m, (Detect, IDetect, IKeypoint)):
             s = 256  # 2x min stride
             m.inplace = self.inplace
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
@@ -355,10 +340,7 @@ class Model(nn.Module):
         logger.info('')
 
     def forward(self, x, augment=False, profile=False):
-        if augment:
-            return self.forward_augment(x)  # augmented inference, None
-        else:
-            return self.forward_once(x, profile)  # single-scale inference, train
+        return self.forward_augment(x) if augment else self.forward_once(x, profile)
 
     def forward_augment(self, x):
         img_size = x.shape[-2:]  # height, width
@@ -378,7 +360,7 @@ class Model(nn.Module):
         for m in self.model:
             if m.f != -1:  # if not from previous layer
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-                
+
             if isinstance(m, nn.Upsample):
                 m.recompute_scale_factor = False
 
@@ -389,7 +371,7 @@ class Model(nn.Module):
                     _ = m(x)
                 dt.append((time_synchronized() - t) * 100)
                 if m == self.model[0]:
-                    logger.info(f"{'time (ms)':>10s} {'GFLOPS':>10s} {'params':>10s}  {'module'}")
+                    logger.info(f"{'time (ms)':>10s} {'GFLOPS':>10s} {'params':>10s}  module")
                 logger.info(f'{dt[-1]:10.2f} {o:10.2f} {m.np:10.0f}  {m.type}')
 
             x = m(x)  # run
@@ -455,7 +437,7 @@ class Model(nn.Module):
             m = NMS()  # module
             m.f = -1  # from
             m.i = self.model[-1].i + 1  # index
-            self.model.add_module(name='%s' % m.i, module=m)  # add
+            self.model.add_module(name=f'{m.i}', module=m)
             self.eval()
         elif not mode and present:
             logger.info('Removing NMS... ')
@@ -499,15 +481,31 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             if m in [BottleneckCSP, C3, C3TR, BottleneckCSPF, BottleneckCSP2, SPPCSP, SPPCSPC]:
                 args.insert(2, n)  # number of repeats
                 n = 1
-            if m in [Conv, GhostConv, Bottleneck, GhostBottleneck, DWConv, MixConv2d, Focus, ConvFocus, CrossConv, BottleneckCSP, C3, C3TR]:
-                if 'act' in d.keys():
-                    args_dict = {"act" : d['act']}
+            if (
+                m
+                in [
+                    Conv,
+                    GhostConv,
+                    Bottleneck,
+                    GhostBottleneck,
+                    DWConv,
+                    MixConv2d,
+                    Focus,
+                    ConvFocus,
+                    CrossConv,
+                    BottleneckCSP,
+                    C3,
+                    C3TR,
+                ]
+                and 'act' in d.keys()
+            ):
+                args_dict = {"act" : d['act']}
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
         elif m is Concat:
-            c2 = sum([ch[x] for x in f])
+            c2 = sum(ch[x] for x in f)
         elif m is ADD:
-            c2 = sum([ch[x] for x in f])//2
+            c2 = sum(ch[x] for x in f) // 2
         elif m in [Detect, IDetect, IKeypoint]:
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
@@ -524,7 +522,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f]
         m_ = nn.Sequential(*[m(*args, **args_dict) for _ in range(n)]) if n > 1 else m(*args, **args_dict)  # module
         t = str(m)[8:-2].replace('__main__.', '')  # module type
-        np = sum([x.numel() for x in m_.parameters()])  # number params
+        np = sum(x.numel() for x in m_.parameters())
         m_.i, m_.f, m_.type, m_.np = i, f, t, np  # attach index, 'from' index, type, number params
         logger.info('%3s%18s%3s%10.0f  %-40s%-30s' % (i, f, n, np, t, args))  # print
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)  # append to savelist

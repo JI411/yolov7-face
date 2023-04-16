@@ -51,8 +51,7 @@ def model_inference(model_path=None, input=None):
     #onnx_model = onnx.load(args.model_path)
     session = onnxruntime.InferenceSession(model_path, None)
     input_name = session.get_inputs()[0].name
-    output = session.run([], {input_name: input})
-    return output
+    return session.run([], {input_name: input})
 
 
 def model_inference_image_list(model_path, img_path=None, mean=None, scale=None, dst_path=None):
@@ -61,8 +60,8 @@ def model_inference_image_list(model_path, img_path=None, mean=None, scale=None,
     pbar = enumerate(img_file_list)
     max_index = 20
     pbar = tqdm(pbar, total=min(len(img_file_list), max_index))
-    for img_index, img_file  in pbar:
-        pbar.set_description("{}/{}".format(img_index, len(img_file_list)))
+    for img_index, img_file in pbar:
+        pbar.set_description(f"{img_index}/{len(img_file_list)}")
         img_file = img_file.rstrip()
         input = read_img(img_file, mean, scale)
         output = model_inference(model_path, input)
@@ -78,20 +77,27 @@ def post_process(img_file, dst_file, output, score_threshold=0.3):
     img = cv2.imread(img_file)
     #To generate color based on det_label, to look into the codebase of Tensorflow object detection api.
     dst_txt_file = dst_file.replace('png', 'txt')
-    f = open(dst_txt_file, 'wt')
-    for idx in range(len(det_bboxes)):
-        det_bbox = det_bboxes[idx]
-        kpt = kpts[idx]
-        if det_scores[idx]>0:
-            f.write("{:8.0f} {:8.5f} {:8.5f} {:8.5f} {:8.5f} {:8.5f}\n".format(det_labels[idx], det_scores[idx], det_bbox[1], det_bbox[0], det_bbox[3], det_bbox[2]))
-        if det_scores[idx]>score_threshold:
-            color_map = _CLASS_COLOR_MAP[int(det_labels[idx])]
-            img = cv2.rectangle(img, (det_bbox[0], det_bbox[1]), (det_bbox[2], det_bbox[3]), color_map[::-1], 2)
-            cv2.putText(img, "id:{}".format(int(det_labels[idx])), (int(det_bbox[0]+5),int(det_bbox[1])+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_map[::-1], 2)
-            cv2.putText(img, "score:{:2.1f}".format(det_scores[idx]), (int(det_bbox[0] + 5), int(det_bbox[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_map[::-1], 2)
-            plot_skeleton_kpts(img, kpt)
-    cv2.imwrite(dst_file, img)
-    f.close()
+    with open(dst_txt_file, 'wt') as f:
+        for idx in range(len(det_bboxes)):
+            det_bbox = det_bboxes[idx]
+            if det_scores[idx]>0:
+                f.write("{:8.0f} {:8.5f} {:8.5f} {:8.5f} {:8.5f} {:8.5f}\n".format(det_labels[idx], det_scores[idx], det_bbox[1], det_bbox[0], det_bbox[3], det_bbox[2]))
+            if det_scores[idx]>score_threshold:
+                color_map = _CLASS_COLOR_MAP[int(det_labels[idx])]
+                img = cv2.rectangle(img, (det_bbox[0], det_bbox[1]), (det_bbox[2], det_bbox[3]), color_map[::-1], 2)
+                cv2.putText(
+                    img,
+                    f"id:{int(det_labels[idx])}",
+                    (int(det_bbox[0] + 5), int(det_bbox[1]) + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    color_map[::-1],
+                    2,
+                )
+                cv2.putText(img, "score:{:2.1f}".format(det_scores[idx]), (int(det_bbox[0] + 5), int(det_bbox[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_map[::-1], 2)
+                kpt = kpts[idx]
+                plot_skeleton_kpts(img, kpt)
+        cv2.imwrite(dst_file, img)
 
 
 def plot_skeleton_kpts(im, kpts, steps=3):
@@ -106,11 +112,11 @@ def plot_skeleton_kpts(im, kpts, steps=3):
     #plot skeleton
     for sk_id, sk in enumerate(skeleton):
         r, g, b = pose_limb_color[sk_id]
-        pos1 = (int(kpts[(sk[0]-1)*steps]), int(kpts[(sk[0]-1)*steps+1]))
-        pos2 = (int(kpts[(sk[1]-1)*steps]), int(kpts[(sk[1]-1)*steps+1]))
         conf1 = kpts[(sk[0]-1)*steps+2]
         conf2 = kpts[(sk[1]-1)*steps+2]
         if conf1>0.5 and conf2>0.5: # For a limb, both the keypoint confidence must be greater than 0.5
+            pos1 = (int(kpts[(sk[0]-1)*steps]), int(kpts[(sk[0]-1)*steps+1]))
+            pos2 = (int(kpts[(sk[1]-1)*steps]), int(kpts[(sk[1]-1)*steps+1]))
             cv2.line(im, pos1, pos2, (int(r), int(g), int(b)), thickness=2)
 
 
